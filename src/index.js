@@ -335,6 +335,26 @@ window.openFileDialogJS = async (title, initPath, selectionMode, promise) => {
     }
     fileDialog.hide();
   };
+  document.getElementById("open-file-modal-figlinq").onclick = () => {
+    if (!closed) {
+      closed = true;
+      fileDialog.hide();
+      const handleFiglinqMessage = event => {
+        if (event.data && event.data.type === "selected-figlinq-file") {
+          window.removeEventListener("message", handleFiglinqMessage);
+          mountFile(event.data.file)
+            .then(filepath => {
+              cjCall(promise, "resolve", filepath);
+            })
+            .catch(e => {
+              cjCall(promise, "reject", String(e));
+            });
+        }
+      };
+      window.addEventListener("message", handleFiglinqMessage);
+      window.parent.postMessage({ type: "select-figlinq-file" }, "*");
+    }
+  };
 };
 
 window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
