@@ -352,7 +352,7 @@ window.openFileDialogJS = async (title, initPath, selectionMode, promise) => {
         }
       };
       window.addEventListener("message", handleFiglinqMessage);
-      window.parent.postMessage({ type: "select-figlinq-file" }, "*");
+      window.parent.postMessage({ action: "select-figlinq-file" }, "*");
     }
   };
 };

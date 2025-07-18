@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <base href="/imagej_static/" />
     <meta charset="utf-8" />
     <script src="https://cjrtnc.leaningtech.com/20201217_2/cheerpOS.js"></script>
     <script>
@@ -9,7 +10,7 @@
       function registerServiceWorker() {
         if ("serviceWorker" in navigator) {
           window.addEventListener("load", function() {
-            navigator.serviceWorker.register("/service-worker.js").then(
+            navigator.serviceWorker.register("service-worker.js").then(
               function(registration) {
                 // Registration was successful
                 console.log(
