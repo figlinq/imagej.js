@@ -220,6 +220,39 @@
         </div>
       </dialog>
     </div>
+    <!-- Add this dialog HTML near your existing open-file-dialog -->
+    <!-- Replace the save-file-dialog section with this corrected version -->
+<div class="dialog" id="save-file-dialog" aria-hidden="true">
+  <div class="dialog-overlay" tabindex="-1" data-a11y-dialog-hide></div>
+  <dialog
+    class="dialog-content"
+    aria-labelledby="save-dialog-title"
+    aria-describedby="save-dialog-description"
+  >
+    <button
+      data-a11y-dialog-hide
+      class="dialog-close"
+      aria-label="Close this dialog window"
+    >
+      &times;
+    </button>
+
+    <h3 id="save-dialog-title" style="margin-top: 0;">Save File</h3>
+
+    <p id="save-dialog-description">
+      Choose how to save your file:
+    </p>
+
+    <div class="dialog-button-group">
+      <button id="save-file-download" class="dialog-button primary">
+        Download to your computer
+      </button>
+      <button id="save-file-figlinq" class="dialog-button secondary">
+        Save to Figlinq
+      </button>
+    </div>
+  </dialog>
+</div>
 
     <link
       rel="stylesheet"

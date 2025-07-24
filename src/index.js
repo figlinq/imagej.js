@@ -357,16 +357,75 @@ window.openFileDialogJS = async (title, initPath, selectionMode, promise) => {
   };
 };
 
+// window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
+//   // by pass the selection
+//   const savePath = prompt(title || "Saving file as ", initPath);
+//   if (savePath) {
+//     downloadQueue[savePath] = 1;
+//     loader.style.display = "block";
+//     await cjCall(promise, "resolve", "/files/" + savePath);
+//   } else {
+//     await cjCall(promise, "reject", "cancelled");
+//   }
+// };
+
+// Get the save dialog element
+const saveEl = document.getElementById("save-file-dialog");
+const saveDialog = new A11yDialog(saveEl);
+
 window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
-  // by pass the selection
-  const savePath = prompt(title || "Saving file as ", initPath);
-  if (savePath) {
-    downloadQueue[savePath] = 1;
-    loader.style.display = "block";
-    await cjCall(promise, "resolve", "/files/" + savePath);
-  } else {
-    await cjCall(promise, "reject", "cancelled");
-  }
+  document.getElementById("save-dialog-title").innerHTML = title || "Save File";
+  saveDialog.show();
+  let closed = false;
+
+  // Handle dialog close (both overlay click and close button)
+  saveDialog.on("hide", function(dialogEl, event) {
+    if (!closed) {
+      closed = true;
+      cjCall(promise, "reject", "cancelled");
+    }
+  });
+
+  // Download to computer option
+  document.getElementById("save-file-download").onclick = async () => {
+    if (!closed) {
+      const savePath = prompt("Enter filename:", initPath || "image.png");
+      if (savePath) {
+        downloadQueue[savePath] = 1;
+        loader.style.display = "block";
+        closed = true;
+        saveDialog.hide();
+        await cjCall(promise, "resolve", "/files/" + savePath);
+      }
+    }
+  };
+
+  // Save to Figlinq option
+  document.getElementById("save-file-figlinq").onclick = () => {
+    if (!closed) {
+      closed = true;
+      saveDialog.hide();
+
+      const handleFiglinqSaveMessage = (event) => {
+        if (event.data && event.data.type === "figlinq-file-saved") {
+          window.removeEventListener("message", handleFiglinqSaveMessage);
+          cjCall(promise, "resolve", event.data.path || "/figlinq/saved");
+        } else if (event.data && event.data.type === "figlinq-save-cancelled") {
+          window.removeEventListener("message", handleFiglinqSaveMessage);
+          cjCall(promise, "reject", "cancelled");
+        }
+      };
+
+      window.addEventListener("message", handleFiglinqSaveMessage);
+      window.parent.postMessage(
+        {
+          action: "save-to-figlinq",
+          filename: initPath,
+        },
+        "*"
+      );
+    }
+  };
 };
 
 window.onFileOpened = (path, error) => {
