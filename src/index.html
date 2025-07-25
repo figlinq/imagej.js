@@ -195,25 +195,28 @@
         </p>
 
         <div class="dialog-button-group">
-          <button aria-label="Select a local file" id="open-file-modal-select">
+          <button
+            aria-label="Select from Figlinq"
+            id="open-file-modal-figlinq"
+            class="dialog-button primary"
+          >
+            Select Figlinq File
+          </button>
+          <button aria-label="Select a local file" id="open-file-modal-select" class="dialog-button secondary">
             Select Local File
           </button>
           <button
             aria-label="Select a cached file"
             id="open-file-modal-internal"
+            class="dialog-button secondary"
           >
             Select Cached File
-          </button>
-          <button
-            aria-label="Select a file from Figlinq"
-            id="open-file-modal-figlinq"
-          >
-            Select Figlinq File
           </button>
           <button
             aria-label="Cancel the selection"
             id="open-file-modal-cancel"
             data-a11y-dialog-hide
+            class="dialog-button secondary"
           >
             Cancel
           </button>
@@ -242,11 +245,18 @@
         </p>
 
         <div class="dialog-button-group">
-          <button id="save-file-download" class="dialog-button primary">
-            Download to your computer
+          <button id="save-file-figlinq" class="dialog-button primary">
+            Save PNG to Figlinq
           </button>
-          <button id="save-file-figlinq" class="dialog-button secondary">
-            Save to Figlinq
+          <button id="save-file-download" class="dialog-button secondary">
+            Save locally
+          </button>
+          <button
+            id="save-file-cancel"
+            data-a11y-dialog-hide
+            class="dialog-button secondary"
+          >
+            Cancel
           </button>
         </div>
       </dialog>

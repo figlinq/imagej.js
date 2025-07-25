@@ -609,10 +609,10 @@ hr.solid {
   -ms-transform: translate(-50%, -50%);
   transform: translate(-50%, -50%);
   margin: 0;
-  padding: 15px 2em 2em 2em; /* Reduced top padding */
-  max-width: 90%;
-  width: 400px;
+  padding: 20px 2em 2em 2em; /* Reduced top padding */
+  max-width: 50%;
   border-radius: 5px;
+  border: none;
 }
 
 /* Ensure h3 has no top margin */
