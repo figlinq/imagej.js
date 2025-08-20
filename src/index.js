@@ -1120,7 +1120,8 @@ function addMenuItem(config) {
 
 window.registerServiceWorker = function() {
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function() {
+    // Don't wait for window.load if we're in an iframe or DOM is already loaded
+    const registerSW = () => {
       navigator.serviceWorker.register("/service-worker.js").then(
         function(registration) {
           // Registration was successful
@@ -1132,8 +1133,19 @@ window.registerServiceWorker = function() {
           const currentVersion = localStorage.getItem("service-worker-version");
           if (!currentVersion || currentVersion != version) {
             console.log("Upgrading ServiceWorker to " + version);
+            // Force update the service worker
             registration.update();
             localStorage.setItem("service-worker-version", version);
+            
+            // For critical updates, also try to skip waiting
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            
+            // Listen for new service worker taking control
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              console.log('New service worker activated, reloading may be needed for full update');
+            });
           }
         },
         function(err) {
@@ -1141,7 +1153,15 @@ window.registerServiceWorker = function() {
           console.log("ServiceWorker registration failed: ", err);
         }
       );
-    });
+    };
+    
+    if (document.readyState === 'complete' || window.self !== window.top) {
+      // Page is already loaded or we're in an iframe, register immediately
+      registerSW();
+    } else {
+      // Wait for window load event
+      window.addEventListener("load", registerSW);
+    }
   }
 };
 
