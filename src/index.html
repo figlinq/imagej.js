@@ -301,34 +301,16 @@
         }, 10000);
       };
 
-      // Check if we're in an iframe
-      const isInIframe = window.self !== window.top;
-      
-      // Clean up old service workers when in iframe
-      if ('serviceWorker' in navigator && isInIframe) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          registrations.forEach(function(registration) {
-            console.log('[ImageJ] Unregistering service worker in iframe context');
-            registration.unregister();
-          });
-        });
-      }
-      
       document.addEventListener(
         "DOMContentLoaded",
         function() {
-          // Only register service worker if NOT in iframe
-          // Service workers in iframes can cause caching conflicts
-          if (!isInIframe) {
-            registerServiceWorker();
-          } else {
-            console.log("Skipping service worker registration in iframe context");
-          }
+          // Register service worker for both standalone and iframe contexts
+          registerServiceWorker();
         },
         false
       );
       
-      // Always start ImageJ, but with a more robust approach
+      // Start ImageJ with a robust approach
       function startImageJWhenReady() {
         if (typeof startImageJ === 'function') {
           startImageJ();

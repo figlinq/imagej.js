@@ -1153,15 +1153,6 @@ function addMenuItem(config) {
 
 window.registerServiceWorker = function() {
   if ("serviceWorker" in navigator) {
-    // Check if we're in an iframe
-    const isInIframe = window.self !== window.top;
-    
-    // Skip service worker in iframe contexts
-    if (isInIframe) {
-      console.log("[ServiceWorker] Skipping registration in iframe context");
-      return;
-    }
-    
     window.addEventListener("load", function() {
       navigator.serviceWorker.register("/service-worker.js").then(
         function(registration) {

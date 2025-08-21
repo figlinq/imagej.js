@@ -6,7 +6,7 @@
  * - Caches essential static assets for performance
  * - Always fetches HTML fresh (network-first)
  * - Automatically cleans up old caches
- * - Bypasses cache for iframe contexts
+ * - Works the same in both standalone and iframe contexts
  */
 
 const CACHE_VERSION = 'imagej-v0.6.0';
@@ -88,18 +88,6 @@ self.addEventListener('fetch', function(event) {
   
   // Skip non-GET requests
   if (request.method !== 'GET') {
-    return;
-  }
-  
-  // Check if this is an iframe context (has hash parameters from hypha-rpc)
-  const isIframeContext = url.hash.includes('client_id=') || 
-                         url.hash.includes('workspace=') ||
-                         url.search.includes('iframe=true');
-  
-  // Bypass cache completely for iframe contexts
-  if (isIframeContext) {
-    console.log('[ServiceWorker] Bypassing cache for iframe context:', url.pathname);
-    event.respondWith(fetch(request));
     return;
   }
   
