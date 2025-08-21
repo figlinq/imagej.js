@@ -255,20 +255,39 @@
         }, 10000);
       };
 
+      // Check if we're in an iframe
+      const isInIframe = window.self !== window.top;
+      
       document.addEventListener(
         "DOMContentLoaded",
         function() {
-          registerServiceWorker();
+          // Only register service worker if NOT in iframe
+          // Service workers in iframes can cause caching conflicts
+          if (!isInIframe) {
+            registerServiceWorker();
+          } else {
+            console.log("Skipping service worker registration in iframe context");
+          }
         },
         false
       );
-      document.addEventListener(
-        "DOMContentLoaded",
-        function() {
+      
+      // Always start ImageJ, but with a more robust approach
+      function startImageJWhenReady() {
+        if (typeof startImageJ === 'function') {
           startImageJ();
-        },
-        false
-      );
+        } else {
+          // If startImageJ is not ready, try again in 100ms
+          setTimeout(startImageJWhenReady, 100);
+        }
+      }
+      
+      if (document.readyState === 'loading') {
+        document.addEventListener("DOMContentLoaded", startImageJWhenReady, false);
+      } else {
+        // DOM is already loaded (common in iframes)
+        startImageJWhenReady();
+      }
     </script>
     <script>
       const siteTipsContainer = document.getElementById("site-tips-container");

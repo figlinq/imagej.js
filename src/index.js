@@ -1120,6 +1120,22 @@ function addMenuItem(config) {
 
 window.registerServiceWorker = function() {
   if ("serviceWorker" in navigator) {
+    // Check if we're in an iframe
+    const isInIframe = window.self !== window.top;
+    
+    // If in iframe, try to unregister any existing service worker
+    if (isInIframe) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          if (registration.scope.includes(window.location.origin)) {
+            registration.unregister();
+            console.log("Unregistered service worker in iframe context:", registration.scope);
+          }
+        }
+      });
+      return; // Don't register new service worker in iframe
+    }
+    
     window.addEventListener("load", function() {
       navigator.serviceWorker.register("/service-worker.js").then(
         function(registration) {
