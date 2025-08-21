@@ -3,7 +3,11 @@
   <head>
     <base href="/imagej_static/" />
     <meta charset="utf-8" />
-    <link rel="manifest" href="manifest.webmanifest" />
+    <!-- Force browsers to check for updates, especially important for service worker fixes -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="ResourceLoaderDynamicStyles" content="" />
     <meta name="generator" content="MediaWiki 1.28.0" />
     <meta
@@ -299,6 +303,16 @@
 
       // Check if we're in an iframe
       const isInIframe = window.self !== window.top;
+      
+      // Clean up old service workers when in iframe
+      if ('serviceWorker' in navigator && isInIframe) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          registrations.forEach(function(registration) {
+            console.log('[ImageJ] Unregistering service worker in iframe context');
+            registration.unregister();
+          });
+        });
+      }
       
       document.addEventListener(
         "DOMContentLoaded",
