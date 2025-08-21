@@ -6,9 +6,9 @@
   "module": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no tests available\" && exit 1",
-    "build": "webpack --mode production --devtool source-map",
-    "watch": "webpack --watch",
-    "serve": "webpack-dev-server --watch",
+    "build": "NODE_OPTIONS=--openssl-legacy-provider webpack --mode production --devtool source-map",
+    "watch": "NODE_OPTIONS=--openssl-legacy-provider webpack --watch",
+    "serve": "NODE_OPTIONS=--openssl-legacy-provider webpack-dev-server --watch",
     "stats": "webpack --profile --json > stats.json",
     "format": "prettier --write \"{src,tests}/**/*{.js,.vue,.css,.html}\"",
     "check-format": "prettier --check \"{src,tests}/**/**{.js,.vue,.css,.html}\"",

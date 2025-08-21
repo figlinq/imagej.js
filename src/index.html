@@ -297,60 +297,38 @@
         }, 10000);
       };
 
-      // Robust ImageJ.js initialization system
-      let imagejStarted = false;
-      let startAttempts = 0;
-      const maxStartAttempts = 50; // 5 seconds max wait
+      // Check if we're in an iframe
+      const isInIframe = window.self !== window.top;
       
-      function ensureImageJStarts() {
-        if (imagejStarted) return;
-        
-        if (typeof startImageJ === 'function') {
-          console.log('Starting ImageJ.JS...');
-          imagejStarted = true;
-          startImageJ();
-        } else if (startAttempts < maxStartAttempts) {
-          startAttempts++;
-          // Try again in 100ms
-          setTimeout(ensureImageJStarts, 100);
-        } else {
-          console.error('Failed to start ImageJ.JS: startImageJ function not found after 5 seconds');
-        }
-      }
-      
-      // Method 1: DOMContentLoaded (most common)
-      if (document.readyState === 'loading') {
-        document.addEventListener("DOMContentLoaded", function() {
-          ensureImageJStarts();
-          if (typeof registerServiceWorker === 'function') {
+      document.addEventListener(
+        "DOMContentLoaded",
+        function() {
+          // Only register service worker if NOT in iframe
+          // Service workers in iframes can cause caching conflicts
+          if (!isInIframe) {
             registerServiceWorker();
+          } else {
+            console.log("Skipping service worker registration in iframe context");
           }
-        }, false);
-      } else {
-        // DOM is already loaded (happens in iframes or dynamic loading)
-        console.log('DOM already loaded, attempting to start ImageJ.JS...');
-        setTimeout(ensureImageJStarts, 0);
-        if (typeof registerServiceWorker === 'function') {
-          registerServiceWorker();
+        },
+        false
+      );
+      
+      // Always start ImageJ, but with a more robust approach
+      function startImageJWhenReady() {
+        if (typeof startImageJ === 'function') {
+          startImageJ();
+        } else {
+          // If startImageJ is not ready, try again in 100ms
+          setTimeout(startImageJWhenReady, 100);
         }
       }
       
-      // Method 2: Window load event (fallback)
-      window.addEventListener("load", ensureImageJStarts, false);
-      
-      // Method 3: Check periodically as ultimate fallback
-      // This handles cases where scripts load after DOM events
-      setTimeout(ensureImageJStarts, 500);
-      setTimeout(ensureImageJStarts, 1000);
-      
-      // Method 4: For iframe contexts, also listen for postMessage triggers
-      if (window.self !== window.top) {
-        window.addEventListener('message', function(event) {
-          if (event.data && event.data.type === 'startImageJ') {
-            console.log('Received startImageJ message from parent');
-            ensureImageJStarts();
-          }
-        });
+      if (document.readyState === 'loading') {
+        document.addEventListener("DOMContentLoaded", startImageJWhenReady, false);
+      } else {
+        // DOM is already loaded (common in iframes)
+        startImageJWhenReady();
       }
     </script>
     <script>
