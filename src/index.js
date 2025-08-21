@@ -1123,38 +1123,57 @@ window.registerServiceWorker = function() {
     // Check if we're in an iframe
     const isInIframe = window.self !== window.top;
     
-    // If in iframe, try to unregister any existing service worker
+    // Skip service worker in iframe contexts
     if (isInIframe) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
-          if (registration.scope.includes(window.location.origin)) {
-            registration.unregister();
-            console.log("Unregistered service worker in iframe context:", registration.scope);
-          }
-        }
-      });
-      return; // Don't register new service worker in iframe
+      console.log("[ServiceWorker] Skipping registration in iframe context");
+      return;
     }
     
     window.addEventListener("load", function() {
       navigator.serviceWorker.register("/service-worker.js").then(
         function(registration) {
-          // Registration was successful
-          console.log(
-            "ServiceWorker registration successful with scope: ",
-            registration.scope
-          );
-
-          const currentVersion = localStorage.getItem("service-worker-version");
-          if (!currentVersion || currentVersion != version) {
-            console.log("Upgrading ServiceWorker to " + version);
-            registration.update();
-            localStorage.setItem("service-worker-version", version);
+          console.log("[ServiceWorker] Registration successful:", registration.scope);
+          
+          // Check for updates periodically (every page load)
+          registration.update();
+          
+          // Handle new service worker waiting
+          if (registration.waiting) {
+            // There's a new service worker waiting, prompt user or auto-update
+            console.log("[ServiceWorker] New version waiting, activating...");
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
           }
+          
+          // Handle future updates
+          registration.addEventListener('updatefound', function() {
+            const newWorker = registration.installing;
+            console.log("[ServiceWorker] Update found, installing...");
+            
+            newWorker.addEventListener('statechange', function() {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New service worker installed, activate it
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                
+                // Optional: Show a notification to the user
+                console.log("[ServiceWorker] New version available! Page will refresh...");
+                
+                // Auto-refresh when new service worker takes control
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                  if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          });
+          
+          // Store version for tracking
+          localStorage.setItem("service-worker-version", version);
         },
         function(err) {
-          // registration failed :(
-          console.log("ServiceWorker registration failed: ", err);
+          console.error("[ServiceWorker] Registration failed:", err);
         }
       );
     });
