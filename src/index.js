@@ -334,32 +334,7 @@ window.openFileDialogJS = async (title, initPath, selectionMode, promise) => {
       cjCall(promise, "resolve", "");
     }
     fileDialog.hide();
-  };
-  document.getElementById("open-file-modal-figlinq").onclick = () => {
-    if (!closed) {
-      closed = true;
-      fileDialog.hide();
-      const handleFiglinqMessage = event => {
-        if (event.data && event.data.type === "selected-figlinq-file") {
-          if (event.data.file) {
-            window.removeEventListener("message", handleFiglinqMessage);
-            mountFile(event.data.file)
-              .then(filepath => {
-                cjCall(promise, "resolve", filepath);
-              })
-              .catch(e => {
-                cjCall(promise, "reject", String(e));
-              });
-          } else {
-            window.removeEventListener("message", handleFiglinqMessage);
-            cjCall(promise, "reject", "No file selected");
-          }
-        }
-      };
-      window.addEventListener("message", handleFiglinqMessage);
-      window.parent.postMessage({ action: "select-figlinq-file" }, "*");
-    }
-  };
+  };  
 };
 
 // window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
@@ -379,14 +354,7 @@ const saveEl = document.getElementById("save-file-dialog");
 const saveDialog = new A11yDialog(saveEl);
 
 window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
-  const fmt = title.split("Save as ")[1].toLowerCase();
-  if (fmt !== "tiff") {
-    // Hide the button id save-file-figlinq
-    document.getElementById("save-file-figlinq").style.display = "none";
-  } else {
-    document.getElementById("save-file-figlinq").style.display = "inline-block";
-  }
-
+  const fmt = title.split("Save as ")[1].toLowerCase(); 
   document.getElementById("save-dialog-title").innerHTML = "Save File";
   saveDialog.show();
   let closed = false;
@@ -411,54 +379,7 @@ window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
         await cjCall(promise, "resolve", "/files/" + savePath);
       }
     }
-  };
-
-  // Save to Figlinq option
-  document.getElementById("save-file-figlinq").onclick = async () => {
-    if (!closed) {
-      closed = true;
-      saveDialog.hide();
-
-      try {
-        // Get the current image and convert to blob
-        const imp = await ij.getImage();
-        const filename = cjStringJavaToJs(await cjCall(imp, "getTitle"));
-        const imageBytes = javaBytesToArrayBuffer(
-          await ij.saveAsBytes(imp, "png")
-        );
-        const blob = new Blob([imageBytes], { type: "image/png" });
-
-        const handleFiglinqSaveMessage = (event) => {
-          if (event.data && event.data.type === "figlinq-file-saved") {
-            window.removeEventListener("message", handleFiglinqSaveMessage);
-            cjCall(promise, "resolve", "/figlinq");
-          } else if (
-            event.data &&
-            event.data.type === "figlinq-save-cancelled"
-          ) {
-            window.removeEventListener("message", handleFiglinqSaveMessage);
-            cjCall(promise, "reject", "cancelled");
-          }
-        };
-
-        window.addEventListener("message", handleFiglinqSaveMessage);
-
-        // Send the blob data along with the message
-        window.parent.postMessage(
-          {
-            action: "upload-file",
-            filename,
-            imageData: blob,
-            imageType: "image/tiff",
-          },
-          "*"
-        );
-      } catch (error) {
-        console.error("Failed to save image to Figlinq:", error);
-        cjCall(promise, "reject", `Failed to get image data: ${error}`);
-      }
-    }
-  };
+  };  
 };
 
 window.onFileOpened = (path, error) => {
