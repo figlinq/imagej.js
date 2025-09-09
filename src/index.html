@@ -190,8 +190,8 @@
         <h1 id="dialogTitle">Open File</h1>
 
         <p id="dialogDescription">
-          You can select a file from your local file system or cached files in the
-          browser.
+          You can select a file from your local file system or cached files in
+          the browser.
         </p>
 
         <div class="dialog-button-group">
@@ -362,16 +362,62 @@
             setTimeout(insertFileMenuItems, 300);
             return;
           }
-
           const ij = window.ij;
           try {
-            const menuUl = getMenuUl();
+            let menuUl = getMenuUl();
             if (!menuUl) return;
             const labels = Array.from(menuUl.children).map(
               (li) =>
                 (li.querySelector("a") && li.querySelector("a").textContent) ||
                 ""
             );
+
+            // Add: Save PNG to Figlinq
+            if (!labels.includes("Save PNG to Figlinq")) {
+              const liSave = document.createElement("li");
+              liSave.classList.add("menuItem", "subMenuItem");
+              const aSave = document.createElement("a");
+              aSave.textContent = "Save PNG to Figlinq";
+              liSave.appendChild(aSave);
+              liSave.onclick = async () => {
+                try {
+                  const imp = await ij.getImage();
+                  if (!imp) throw new Error("No active image");
+                  const filename = cjStringJavaToJs(
+                    await cjCall(imp, "getTitle")
+                  );
+                  const javaBytes = await ij.saveAsBytes(imp, "png");
+                  const arrayBuffer = javaBytes.slice(1).buffer;
+                  const blob = new Blob([arrayBuffer], { type: "image/png" });
+
+                  const handleFiglinqSaveMessage = (event) => {
+                    if (
+                      event.data &&
+                      (event.data.type === "figlinq-file-saved" ||
+                        event.data.type === "figlinq-save-cancelled")
+                    ) {
+                      window.removeEventListener(
+                        "message",
+                        handleFiglinqSaveMessage
+                      );
+                    }
+                  };
+                  window.addEventListener("message", handleFiglinqSaveMessage);
+                  window.parent.postMessage(
+                    {
+                      action: "upload-file",
+                      filename,
+                      imageData: blob,
+                      imageType: "image/png",
+                    },
+                    "*"
+                  );
+                } catch (error) {
+                  console.error("Failed to save image to Figlinq:", error);
+                }
+              };
+              menuUl.insertBefore(liSave, menuUl.firstChild);
+            }
 
             // Add: Load image from Figlinq
             if (!labels.includes("Load image from Figlinq")) {
@@ -422,68 +468,19 @@
               menuUl.insertBefore(liLoad, menuUl.firstChild);
             }
 
-            // Add: Save PNG to Figlinq
-            if (!labels.includes("Save PNG to Figlinq")) {
-              const liSave = document.createElement("li");
-              liSave.classList.add("menuItem", "subMenuItem");
-              const aSave = document.createElement("a");
-              aSave.textContent = "Save PNG to Figlinq";
-              liSave.appendChild(aSave);
-              liSave.onclick = async () => {
-                try {
-                  const imp = await ij.getImage();
-                  if (!imp) throw new Error("No active image");
-                  const filename = cjStringJavaToJs(
-                    await cjCall(imp, "getTitle")
-                  );
-                  const javaBytes = await ij.saveAsBytes(imp, "png");
-                  const arrayBuffer = javaBytes.slice(1).buffer;
-                  const blob = new Blob([arrayBuffer], { type: "image/png" });
-
-                  const handleFiglinqSaveMessage = (event) => {
-                    if (
-                      event.data &&
-                      (event.data.type === "figlinq-file-saved" ||
-                        event.data.type === "figlinq-save-cancelled")
-                    ) {
-                      window.removeEventListener(
-                        "message",
-                        handleFiglinqSaveMessage
-                      );
-                    }
-                  };
-                  window.addEventListener("message", handleFiglinqSaveMessage);
-                  window.parent.postMessage(
-                    {
-                      action: "upload-file",
-                      filename,
-                      imageData: blob,
-                      imageType: "image/png",
-                    },
-                    "*"
-                  );
-                } catch (error) {
-                  console.error("Failed to save image to Figlinq:", error);
-                }
-              };
-              menuUl.appendChild(liSave);
-            }
+            // Add '-' separator
+            menuUl = getMenuUl();
+            const liSep = document.createElement("li");
+            liSep.classList.add("menuItem");
+            const aSep = document.createElement("a");
+            aSep.innerHTML = "-";
+            liSep.appendChild(aSep);
+            menuUl.insertBefore(liSep, menuUl.children[2]);
           } catch (e) {
             console.error("Failed to add Figlinq menu items:", e);
           }
         }
-
-        // Wrap onImageJInitialized to ensure our menu items are added after IJ sets up
-        const prevInit = window.onImageJInitialized;
-        window.onImageJInitialized = async function() {
-          try {
-            if (typeof prevInit === "function") {
-              await prevInit.apply(this, arguments);
-            }
-          } finally {
-            insertFileMenuItems();
-          }
-        };
+        insertFileMenuItems();
       })();
     </script>
   </body>

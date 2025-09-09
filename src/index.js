@@ -1725,16 +1725,12 @@ window.onImageJInitialized = async () => {
       addMenuItem
     );
   }
-  // if inside an iframe, setup ImJoy
-  if (window.self !== window.top) {
-    setAPI(null);
-  } else {
-    await setupImJoyApp(setAPI);
-    const titleBar = document.querySelector(".titleBar");
-    const elem = document.getElementById("imjoy-menu");
-    window._imjoy_menu_element = elem;
-    titleBar.parentNode.insertBefore(elem, titleBar.nextSibling);
-  }
+  // Always setup the ImJoy App UI (show menu/plugins) regardless of iframe
+  await setupImJoyApp(setAPI);
+  const titleBar = document.querySelector(".titleBar");
+  const elem = document.getElementById("imjoy-menu");
+  window._imjoy_menu_element = elem;
+  titleBar.parentNode.insertBefore(elem, titleBar.nextSibling);
 
   processUrlParameters(imagej);
 
