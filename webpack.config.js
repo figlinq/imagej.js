@@ -54,6 +54,10 @@ const config = (env, argv) => ({
       },
       {
         from: path.resolve(__dirname, 'src', 'imagej-js-chatbot-extension.imjoy.html')
+      },
+      {
+        from: path.resolve(__dirname, 'src', 'figlinq.js'),
+        to: path.resolve(__dirname, 'dist', 'figlinq.js')
       }
     ]),
     new HtmlWebpackPlugin({
