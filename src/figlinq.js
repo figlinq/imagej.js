@@ -1,4 +1,7 @@
 (function() {
+  // Memory: Map filename to fileObj for tracking opened files
+  const fileMemory = new Map();
+
   async function insertFileMenuItems() {
     const getMenuUl = () =>
       document.querySelector(
@@ -28,7 +31,9 @@
         new Promise((resolve, reject) => {
           try {
             const img = new Image();
-            const url = URL.createObjectURL(new Blob([arrayBuffer], { type: "image/png" }));
+            const url = URL.createObjectURL(
+              new Blob([arrayBuffer], { type: "image/png" })
+            );
             img.onload = () => {
               try {
                 const canvas = document.createElement("canvas");
@@ -41,7 +46,8 @@
                 canvas.toBlob(
                   (blob) => {
                     URL.revokeObjectURL(url);
-                    if (!blob) return reject(new Error("Failed to create JPEG blob"));
+                    if (!blob)
+                      return reject(new Error("Failed to create JPEG blob"));
                     resolve(blob);
                   },
                   "image/jpeg",
@@ -170,6 +176,81 @@
         menuUl.insertBefore(liSave, menuUl.firstChild);
       }
 
+      // Add: Update file in Figlinq
+      if (!labels.includes("Update file in Figlinq")) {
+        const liUpdate = document.createElement("li");
+        liUpdate.classList.add("menuItem", "subMenuItem");
+        const aUpdate = document.createElement("a");
+        aUpdate.textContent = "Update file in Figlinq";
+        liUpdate.appendChild(aUpdate);
+        liUpdate.onclick = async () => {
+          try {
+            const imp = await ij.getImage();
+            if (!imp) throw new Error("No active image");
+            const baseName = cjStringJavaToJs(await cjCall(imp, "getTitle"));
+
+            // Check if we have a fileObj for this filename
+            const fileObj = fileMemory.get(baseName);
+            if (!fileObj) {
+              console.error("No fileObj found for:", baseName);
+              alert(
+                "This file was not opened from Figlinq. Use 'Save to Figlinq' instead."
+              );
+              return;
+            }
+
+            // Determine format from filename
+            const isJpg =
+              baseName.toLowerCase().endsWith(".jpg") ||
+              baseName.toLowerCase().endsWith(".jpeg");
+            const isPng = baseName.toLowerCase().endsWith(".png");
+
+            let imageData, imageType;
+
+            if (isJpg) {
+              // Convert to JPEG at 90%
+              const javaBytes = await ij.saveAsBytes(imp, "png");
+              const arrayBuffer = javaBytes.slice(1).buffer;
+              imageData = await pngBytesToJpegBlob(arrayBuffer, 0.9);
+              imageType = "image/jpeg";
+            } else {
+              // Default to PNG
+              const javaBytes = await ij.saveAsBytes(imp, "png");
+              const arrayBuffer = javaBytes.slice(1).buffer;
+              imageData = new Blob([arrayBuffer], { type: "image/png" });
+              imageType = "image/png";
+            }
+
+            const handleFiglinqUpdateMessage = (event) => {
+              if (
+                event.data &&
+                (event.data.type === "figlinq-file-updated" ||
+                  event.data.type === "figlinq-update-cancelled")
+              ) {
+                window.removeEventListener(
+                  "message",
+                  handleFiglinqUpdateMessage
+                );
+              }
+            };
+            window.addEventListener("message", handleFiglinqUpdateMessage);
+            window.parent.postMessage(
+              {
+                action: "update-file",
+                filename: baseName,
+                imageData: imageData,
+                imageType: imageType,
+                fileObj: fileObj,
+              },
+              "*"
+            );
+          } catch (error) {
+            console.error("Failed to update file in Figlinq:", error);
+          }
+        };
+        menuUl.insertBefore(liUpdate, menuUl.firstChild);
+      }
+
       // Add: Load image from Figlinq
       if (!labels.includes("Load image from Figlinq")) {
         const liLoad = document.createElement("li");
@@ -182,6 +263,7 @@
             if (event.data && event.data.type === "selected-figlinq-file") {
               window.removeEventListener("message", handleFiglinqMessage);
               const file = event.data.file;
+              const fileObj = event.data.fileObj;
               if (!file) return; // user cancelled
               try {
                 const name = file.name || "image";
@@ -202,6 +284,12 @@
                     /* noop */
                   }
                 });
+
+                // Store fileObj in memory if provided
+                if (fileObj) {
+                  fileMemory.set(name, fileObj);
+                  console.log("[ImageJ iframe] Stored fileObj for:", name);
+                }
               } catch (e) {
                 console.error("Failed to load selected Figlinq file:", e);
               }
@@ -229,4 +317,123 @@
     }
   }
   insertFileMenuItems();
+
+  // Global message listener for receiving files from parent window (for fid parameter only)
+  async function handleParentMessage(event) {
+    console.log("[ImageJ iframe] Received message:", event.data);
+
+    if (!event.data) {
+      console.log("[ImageJ iframe] No event.data, ignoring");
+      return;
+    }
+
+    // Only handle messages that are specifically for fid parameter loading
+    // (messages with fromFidParameter flag)
+    if (event.data.type !== "selected-figlinq-file" || !event.data.fromFidParameter) {
+      console.log(
+        "[ImageJ iframe] Message not for fid parameter loading, ignoring"
+      );
+      return;
+    }
+
+    console.log("[ImageJ iframe] Received 'selected-figlinq-file' message from fid parameter");
+
+    const file = event.data.file;
+    const fileObj = event.data.fileObj;
+    if (!file) {
+      console.log(
+        "[ImageJ iframe] No file in message, user cancelled or no file provided"
+      );
+      return;
+    }
+
+    console.log(
+      "[ImageJ iframe] File received:",
+      file.name,
+      "size:",
+      file.size,
+      "type:",
+      file.type
+    );
+
+    if (!window.ij) {
+      console.log("[ImageJ iframe] ImageJ not ready yet, retrying in 300ms");
+      setTimeout(() => handleParentMessage(event), 300);
+      return;
+    }
+
+    console.log("[ImageJ iframe] ImageJ ready, loading file into ImageJ");
+
+    try {
+      const name = file.name || "image";
+      const filepath = "/str/" + name;
+      console.log("[ImageJ iframe] Creating virtual file at:", filepath);
+
+      const buffer = await (file.arrayBuffer
+        ? file.arrayBuffer()
+        : new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+          }));
+
+      console.log("[ImageJ iframe] File buffer size:", buffer.byteLength);
+      cheerpjAddStringFile(filepath, new Uint8Array(buffer));
+      console.log("[ImageJ iframe] Virtual file created, opening in ImageJ");
+
+      await window.ij.open(filepath).finally(() => {
+        try {
+          cheerpjRemoveStringFile(filepath);
+          console.log("[ImageJ iframe] Virtual file cleaned up");
+        } catch (e) {
+          console.log("[ImageJ iframe] Error cleaning up virtual file:", e);
+        }
+      });
+
+      // Store fileObj in memory if provided
+      if (fileObj) {
+        fileMemory.set(name, fileObj);
+        console.log("[ImageJ iframe] Stored fileObj for:", name, fileObj);
+      }
+
+      console.log(
+        "[ImageJ iframe] Successfully loaded image from parent:",
+        name
+      );
+    } catch (e) {
+      console.error(
+        "[ImageJ iframe] Failed to load file from parent window:",
+        e
+      );
+    }
+  }
+
+  // Listen for messages from parent window (for fid parameter loading)
+  window.addEventListener("message", handleParentMessage);
+
+  // Request image from parent if fid parameter exists
+  async function requestImageFromParent() {
+    if (!window.ij) {
+      console.log("[ImageJ iframe] ImageJ not ready yet, retrying in 300ms");
+      setTimeout(requestImageFromParent, 300);
+      return;
+    }
+
+    console.log(
+      "[ImageJ iframe] ImageJ ready, asking parent if there's a fid parameter"
+    );
+
+    // Ask parent if there's a fid parameter to load
+    window.parent.postMessage(
+      {
+        action: "imagej-ready-check-fid",
+      },
+      "*"
+    );
+
+    console.log("[ImageJ iframe] Sent imagej-ready-check-fid to parent");
+  }
+
+  requestImageFromParent();
 })();
