@@ -1,6 +1,46 @@
 (function() {
+  console.log("ImageJ-Figlinq integration script v6 loaded");
   // Memory: Map filename to fileObj for tracking opened files
   const fileMemory = new Map();
+
+  // Reusable function to load a Blob/File into ImageJ
+  async function loadBlobIntoImageJ(file, fileObj = null) {
+    if (!window.ij) {
+      setTimeout(() => loadBlobIntoImageJ(file, fileObj), 300);
+      return;
+    }
+
+    try {
+      const name = file.name || "image";
+      const filepath = "/str/" + name;
+
+      const buffer = await (file.arrayBuffer
+        ? file.arrayBuffer()
+        : new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+          }));
+
+      cheerpjAddStringFile(filepath, new Uint8Array(buffer));
+
+      await window.ij.open(filepath).finally(() => {
+        try {
+          cheerpjRemoveStringFile(filepath);
+        } catch (e) {
+          console.warn("[ImageJ iframe] Error cleaning up virtual file:", e);
+        }
+      });
+
+      // Store fileObj in memory if provided
+      if (fileObj) {
+        fileMemory.set(name, fileObj);
+      }
+    } catch (e) {
+      console.error("[ImageJ iframe] Failed to load file:", e);
+    }
+  }
 
   async function insertFileMenuItems() {
     const getMenuUl = () =>
@@ -257,7 +297,6 @@
         liLoad.classList.add("menuItem", "subMenuItem");
         const aLoad = document.createElement("a");
         aLoad.textContent = "Load image from Figlinq";
-        liLoad.appendChild(aLoad);
         liLoad.onclick = async () => {
           const handleFiglinqMessage = async (event) => {
             if (event.data && event.data.type === "selected-figlinq-file") {
@@ -265,34 +304,7 @@
               const file = event.data.file;
               const fileObj = event.data.fileObj;
               if (!file) return; // user cancelled
-              try {
-                const name = file.name || "image";
-                const filepath = "/str/" + name;
-                const buffer = await (file.arrayBuffer
-                  ? file.arrayBuffer()
-                  : new Promise((resolve, reject) => {
-                      const reader = new FileReader();
-                      reader.onload = () => resolve(reader.result);
-                      reader.onerror = reject;
-                      reader.readAsArrayBuffer(file);
-                    }));
-                cheerpjAddStringFile(filepath, new Uint8Array(buffer));
-                await ij.open(filepath).finally(() => {
-                  try {
-                    cheerpjRemoveStringFile(filepath);
-                  } catch (e) {
-                    /* noop */
-                  }
-                });
-
-                // Store fileObj in memory if provided
-                if (fileObj) {
-                  fileMemory.set(name, fileObj);
-                  console.log("[ImageJ iframe] Stored fileObj for:", name);
-                }
-              } catch (e) {
-                console.error("Failed to load selected Figlinq file:", e);
-              }
+              await loadBlobIntoImageJ(file, fileObj);
             }
           };
           window.addEventListener("message", handleFiglinqMessage);
@@ -320,93 +332,82 @@
 
   // Global message listener for receiving files from parent window (for fid parameter only)
   async function handleParentMessage(event) {
-    console.log("[ImageJ iframe] Received message:", event.data);
+    if (!event.data) return;
 
-    if (!event.data) {
-      console.log("[ImageJ iframe] No event.data, ignoring");
+    // Handle standard open workspace files message (from editorBridge)
+    // This allows files dropped or opened from sidebar to be loaded
+    if (event.data.type === "flow_open_workspace_files") {
+      const { relatedFiles } = event.data.data || {};
+      if (Array.isArray(relatedFiles)) {
+        for (const fileRecord of relatedFiles) {
+          // Optimization: If file object is already provided, use it directly
+          if (fileRecord && fileRecord.file instanceof File) {
+            await loadBlobIntoImageJ(fileRecord.file, fileRecord);
+            continue;
+          }
+
+          if (!fileRecord || !fileRecord.web_url) {
+            console.warn(
+              "[ImageJ iframe] Skipping fileRecord due to missing web_url:",
+              fileRecord
+            );
+            continue;
+          }
+
+          // Construct download URL
+          // If share_key is present, append it
+          // Append .src to ensure source file download (matches Imagej.js logic)
+          // The backend usually serves file content at /~user/fid.src
+          let downloadUrl = fileRecord.web_url.replace(/\/$/, ".src");
+          if (fileRecord.share_key) {
+            downloadUrl +=
+              (downloadUrl.includes("?") ? "&" : "?") +
+              "share_key=" +
+              encodeURIComponent(fileRecord.share_key);
+          }
+
+          try {
+            const response = await fetch(downloadUrl, {
+              credentials: "include",
+            });
+            if (!response.ok)
+              throw new Error("Fetch failed: " + response.statusText);
+            const blob = await response.blob();
+            // Create a File object from blob
+            const file = new File([blob], fileRecord.filename || "image", {
+              type: blob.type,
+            });
+
+            // Copy metadata to fileObj
+            const fileObj = { ...fileRecord };
+            await loadBlobIntoImageJ(file, fileObj);
+          } catch (e) {
+            console.error("[ImageJ iframe] Failed to fetch/load file:", e);
+          }
+        }
+      }
       return;
     }
 
     // Only handle messages that are specifically for fid parameter loading
     // (messages with fromFidParameter flag)
-    if (event.data.type !== "selected-figlinq-file" || !event.data.fromFidParameter) {
-      console.log(
-        "[ImageJ iframe] Message not for fid parameter loading, ignoring"
-      );
+    if (
+      event.data.type !== "selected-figlinq-file" ||
+      !event.data.fromFidParameter
+    ) {
       return;
     }
-
-    console.log("[ImageJ iframe] Received 'selected-figlinq-file' message from fid parameter");
 
     const file = event.data.file;
     const fileObj = event.data.fileObj;
     if (!file) {
-      console.log(
+      console.warn(
         "[ImageJ iframe] No file in message, user cancelled or no file provided"
       );
       return;
     }
 
-    console.log(
-      "[ImageJ iframe] File received:",
-      file.name,
-      "size:",
-      file.size,
-      "type:",
-      file.type
-    );
-
-    if (!window.ij) {
-      console.log("[ImageJ iframe] ImageJ not ready yet, retrying in 300ms");
-      setTimeout(() => handleParentMessage(event), 300);
-      return;
-    }
-
-    console.log("[ImageJ iframe] ImageJ ready, loading file into ImageJ");
-
-    try {
-      const name = file.name || "image";
-      const filepath = "/str/" + name;
-      console.log("[ImageJ iframe] Creating virtual file at:", filepath);
-
-      const buffer = await (file.arrayBuffer
-        ? file.arrayBuffer()
-        : new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsArrayBuffer(file);
-          }));
-
-      console.log("[ImageJ iframe] File buffer size:", buffer.byteLength);
-      cheerpjAddStringFile(filepath, new Uint8Array(buffer));
-      console.log("[ImageJ iframe] Virtual file created, opening in ImageJ");
-
-      await window.ij.open(filepath).finally(() => {
-        try {
-          cheerpjRemoveStringFile(filepath);
-          console.log("[ImageJ iframe] Virtual file cleaned up");
-        } catch (e) {
-          console.log("[ImageJ iframe] Error cleaning up virtual file:", e);
-        }
-      });
-
-      // Store fileObj in memory if provided
-      if (fileObj) {
-        fileMemory.set(name, fileObj);
-        console.log("[ImageJ iframe] Stored fileObj for:", name, fileObj);
-      }
-
-      console.log(
-        "[ImageJ iframe] Successfully loaded image from parent:",
-        name
-      );
-    } catch (e) {
-      console.error(
-        "[ImageJ iframe] Failed to load file from parent window:",
-        e
-      );
-    }
+    await loadBlobIntoImageJ(file, fileObj);
   }
 
   // Listen for messages from parent window (for fid parameter loading)
@@ -415,14 +416,9 @@
   // Request image from parent if fid parameter exists
   async function requestImageFromParent() {
     if (!window.ij) {
-      console.log("[ImageJ iframe] ImageJ not ready yet, retrying in 300ms");
       setTimeout(requestImageFromParent, 300);
       return;
     }
-
-    console.log(
-      "[ImageJ iframe] ImageJ ready, asking parent if there's a fid parameter"
-    );
 
     // Ask parent if there's a fid parameter to load
     window.parent.postMessage(
@@ -431,8 +427,6 @@
       },
       "*"
     );
-
-    console.log("[ImageJ iframe] Sent imagej-ready-check-fid to parent");
   }
 
   requestImageFromParent();
