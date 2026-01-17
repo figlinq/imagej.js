@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <base href="/imagej_static/" />
     <meta charset="utf-8" />
     <!-- Force browsers to check for updates, especially important for service worker fixes -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -30,7 +31,7 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <title>ImageJ.JS</title>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="style.css" />
     <script src="https://cjrtnc.leaningtech.com/20201217_2/loader.js"></script>
     <link
       rel="apple-touch-icon"
@@ -193,17 +194,22 @@
         <h1 id="dialogTitle">Open File</h1>
 
         <p id="dialogDescription">
-          You can either select a file from your local file system or cached
-          files in the browser.
+          You can select a file from your local file system or cached files in
+          the browser.
         </p>
 
         <div class="dialog-button-group">
-          <button aria-label="Select a local file" id="open-file-modal-select">
+          <button
+            aria-label="Select a local file"
+            id="open-file-modal-select"
+            class="dialog-button secondary"
+          >
             Select Local File
           </button>
           <button
             aria-label="Select a cached file"
             id="open-file-modal-internal"
+            class="dialog-button secondary"
           >
             Select Cached File
           </button>
@@ -211,6 +217,42 @@
             aria-label="Cancel the selection"
             id="open-file-modal-cancel"
             data-a11y-dialog-hide
+            class="dialog-button secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      </dialog>
+    </div>
+    <div class="dialog" id="save-file-dialog" aria-hidden="true">
+      <div class="dialog-overlay" tabindex="-1" data-a11y-dialog-hide></div>
+      <dialog
+        class="dialog-content"
+        aria-labelledby="save-dialog-title"
+        aria-describedby="save-dialog-description"
+      >
+        <button
+          data-a11y-dialog-hide
+          class="dialog-close"
+          aria-label="Close this dialog window"
+        >
+          &times;
+        </button>
+
+        <h3 id="save-dialog-title" style="margin-top: 0;">Save File</h3>
+
+        <p id="save-dialog-description">
+          Choose how to save your file:
+        </p>
+
+        <div class="dialog-button-group">
+          <button id="save-file-download" class="dialog-button secondary">
+            Save locally
+          </button>
+          <button
+            id="save-file-cancel"
+            data-a11y-dialog-hide
+            class="dialog-button secondary"
           >
             Cancel
           </button>
@@ -242,7 +284,7 @@
           // Dispatch pending loads
           for (var i = 0; i < q.length; i = (i + 1) | 0) q[i].send();
         };
-        ret.src = "/c.html";
+        ret.src = "c.html";
         ret.width = "0px";
         ret.height = "0px";
         ret.style.border = "0px";
@@ -255,7 +297,7 @@
             document.body.appendChild(IFrameProxyDownloader.iframe);
           });
         IFrameProxyDownloader.intervalId = setInterval(function() {
-          IFrameProxyDownloader.iframe.src = "/c.html";
+          IFrameProxyDownloader.iframe.src = "c.html";
         }, 10000);
       };
 
@@ -293,7 +335,7 @@
           "cnij.imjoy.io",
           "0.0.0.0",
           "127.0.0.1",
-          "localhost"
+          "localhost",
         ];
         if (
           timeZone === "Asia/Shanghai" &&
@@ -323,5 +365,6 @@
         console.debug("Respecting Do-Not-Track, not loading analytics.");
       }
     </script>
+    <script src="figlinq.js"></script>
   </body>
 </html>

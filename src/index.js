@@ -334,19 +334,52 @@ window.openFileDialogJS = async (title, initPath, selectionMode, promise) => {
       cjCall(promise, "resolve", "");
     }
     fileDialog.hide();
-  };
+  };  
 };
 
+// window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
+//   // by pass the selection
+//   const savePath = prompt(title || "Saving file as ", initPath);
+//   if (savePath) {
+//     downloadQueue[savePath] = 1;
+//     loader.style.display = "block";
+//     await cjCall(promise, "resolve", "/files/" + savePath);
+//   } else {
+//     await cjCall(promise, "reject", "cancelled");
+//   }
+// };
+
+// Get the save dialog element
+const saveEl = document.getElementById("save-file-dialog");
+const saveDialog = new A11yDialog(saveEl);
+
 window.saveFileDialogJS = async (title, initPath, selectionMode, promise) => {
-  // by pass the selection
-  const savePath = prompt(title || "Saving file as ", initPath);
-  if (savePath) {
-    downloadQueue[savePath] = 1;
-    loader.style.display = "block";
-    await cjCall(promise, "resolve", "/files/" + savePath);
-  } else {
-    await cjCall(promise, "reject", "cancelled");
-  }
+  const fmt = title.split("Save as ")[1].toLowerCase(); 
+  document.getElementById("save-dialog-title").innerHTML = "Save File";
+  saveDialog.show();
+  let closed = false;
+
+  // Handle dialog close (both overlay click and close button)
+  saveDialog.on("hide", function(dialogEl, event) {
+    if (!closed) {
+      closed = true;
+      cjCall(promise, "reject", "cancelled");
+    }
+  });
+
+  // Download to computer option
+  document.getElementById("save-file-download").onclick = async () => {
+    if (!closed) {
+      const savePath = prompt("Enter filename:", initPath || "image.png");
+      if (savePath) {
+        downloadQueue[savePath] = 1;
+        loader.style.display = "block";
+        closed = true;
+        saveDialog.hide();
+        await cjCall(promise, "resolve", "/files/" + savePath);
+      }
+    }
+  };  
 };
 
 window.onFileOpened = (path, error) => {
@@ -1718,16 +1751,12 @@ window.onImageJInitialized = async () => {
       addMenuItem
     );
   }
-  // if inside an iframe, setup ImJoy
-  if (window.self !== window.top) {
-    setAPI(null);
-  } else {
-    await setupImJoyApp(setAPI);
-    const titleBar = document.querySelector(".titleBar");
-    const elem = document.getElementById("imjoy-menu");
-    window._imjoy_menu_element = elem;
-    titleBar.parentNode.insertBefore(elem, titleBar.nextSibling);
-  }
+  // Always setup the ImJoy App UI (show menu/plugins) regardless of iframe
+  await setupImJoyApp(setAPI);
+  const titleBar = document.querySelector(".titleBar");
+  const elem = document.getElementById("imjoy-menu");
+  window._imjoy_menu_element = elem;
+  titleBar.parentNode.insertBefore(elem, titleBar.nextSibling);
 
   processUrlParameters(imagej);
 
